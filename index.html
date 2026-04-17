@@ -5,8 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>아폴로 — 오늘을 위한 청년변증</title>
 <style>
-:root{--bg:#faf9f6;--primary:#1a1a2e;--accent:#4a7c59;--accent2:#c9a84c;--text:#2d2d2d;--border:#e0dcd5;--sb:260px;--fs:16px}
+:root{--bg:#faf9f6;--primary:#1a1a2e;--accent:#4a7c59;--accent2:#c9a84c;--text:#2d2d2d;--border:#e0dcd5;--sb:260px;--fs:16px;--pg-bg:#fff;--pg-num-c:#bbb;--bot-bg:#fff;--bot-border:#e0dcd5}
 @media(max-width:768px){:root{--fs:15px}}
+body.dark{--bg:#1a1a1a;--primary:#0d0d1a;--text:#d4d0c8;--border:#333;--pg-bg:#1e1e1e;--pg-num-c:#555;--bot-bg:#1e1e1e;--bot-border:#333}
+body.dark .page .ct{color:#c8c4bc}
+body.dark .page .sh{color:#c8c4bc}
+body.dark .page .qt{background:#252525;border-left-color:#444;color:#aaa}
+body.dark .page .sc{background:#1e1d18;color:#c4b98a}
+body.dark .page .tm-wrap{background:#1e1c18;border-color:#3a3530}
+body.dark .page .tm-wrap p{color:#b8b0a0}
+body.dark .page .tm-head{color:#7dc896}
+body.dark #cover{background:linear-gradient(135deg,#0d0d1a,#0a0f1e 50%,#061224)}
+body.dark .nb{background:var(--bot-bg);border-color:var(--border);color:#888}
+body.dark .nb:hover{border-color:var(--accent);color:var(--accent)}
+body.dark #bot{background:var(--bot-bg);border-top-color:var(--border)}
+body.dark .fb{background:var(--bot-bg);border-color:var(--border);color:#777}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;overflow:hidden;display:flex}
 
@@ -66,7 +79,7 @@ li.lk{opacity:.45}li.lk .tl{opacity:1}li.ul .tl{display:none}
 .pg-num{font-size:10px;color:#bbb;text-align:center;margin-bottom:20px;letter-spacing:.1em}
 .spread-div{width:1px;background:var(--border);flex-shrink:0;align-self:stretch;margin:20px 0}
 
-.page p{line-height:1.85;margin-bottom:14px;text-align:justify;word-break:keep-all;word-spacing:-.3px}
+.page p{line-height:2.0;margin-bottom:18px;text-align:justify;word-break:keep-all;word-spacing:-.3px}
 .page .ct{font-family:'Apple Myungjo','Noto Serif KR',serif;font-size:1.5em;font-weight:700;color:var(--primary);margin-bottom:24px;padding-bottom:12px;border-bottom:2px solid var(--accent);line-height:1.4}
 .page .ct[data-type="prologue"],.page .ct[data-type="epilogue"]{border-bottom-color:var(--accent2)}
 .page .ct[data-type="appendix"]{border-bottom-color:#ccc;font-size:1.2em}
@@ -76,7 +89,7 @@ li.lk{opacity:.45}li.lk .tl{opacity:1}li.ul .tl{display:none}
 .page .sc{background:#f4f0e8;border-left:3px solid var(--accent2);color:#4a3f2f;font-style:italic}
 .page .qt{background:#f7f5f0;border-left:3px solid #d4cfc4;color:#555}
 .page .qt p{font-style:italic;text-align:left;margin-bottom:4px}.page .qt cite{font-size:.85em;color:#999;font-style:normal}
-.page .bl{line-height:1.85;margin-bottom:8px;padding-left:1.2em;text-indent:-1.2em;text-align:left;word-break:keep-all}
+.page .bl{line-height:2.0;margin-bottom:10px;padding-left:1.2em;text-indent:-1.2em;text-align:left;word-break:keep-all}
 .page .bl::before{content:"• ";color:var(--accent);font-weight:700}
 /* 간증 블록 */
 .page .tm-wrap{background:#f9f7f2;border:1px solid #e8e0d0;border-radius:6px;padding:16px 18px;margin:18px 0}
@@ -86,6 +99,36 @@ li.lk{opacity:.45}li.lk .tl{opacity:1}li.ul .tl{display:none}
 .page.blurred{filter:blur(5px);user-select:none;pointer-events:none;opacity:.12;max-height:280px;overflow:hidden}
 .lock-msg{text-align:center;padding:50px 20px;color:#999}
 .lock-msg .li{font-size:42px;margin-bottom:12px}.lock-msg p{font-size:13px;line-height:1.6;color:#aaa}
+/* 하이라이트 */
+.hl-y{background:#fff176;border-radius:2px;cursor:pointer}.hl-b{background:#b3e5fc;border-radius:2px;cursor:pointer}.hl-g{background:#c8e6c9;border-radius:2px;cursor:pointer}
+body.dark .hl-y{background:#6b5e00;color:#f5e642}body.dark .hl-b{background:#0a3a4a;color:#7dd4f0}body.dark .hl-g{background:#0a3020;color:#6dcc8a}
+/* 검색 오버레이 */
+#srch-wrap{display:none;position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,.5);padding:16px}
+#srch-wrap.show{display:block}
+#srch-box{display:flex;gap:8px;max-width:600px;margin:0 auto;background:var(--bg);border-radius:8px;padding:10px 14px;align-items:center;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+#srch-inp{flex:1;border:none;background:transparent;font-size:14px;color:var(--text);outline:none}
+#srch-info{font-size:11px;color:#999;white-space:nowrap}
+#srch-close{background:none;border:none;color:#999;font-size:18px;cursor:pointer;padding:0 4px}
+#srch-results{max-width:600px;margin:8px auto 0;max-height:60vh;overflow-y:auto;background:var(--bg);border-radius:8px;padding:4px 0;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.srch-item{padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .12s}
+.srch-item:hover{background:rgba(74,124,89,.08)}
+.srch-item .si-ch{font-size:10px;color:var(--accent);margin-bottom:3px;font-weight:600}
+.srch-item .si-txt{font-size:12px;color:var(--text);line-height:1.6}
+.srch-item .si-txt mark{background:#fff176;color:#333;border-radius:2px}
+body.dark .srch-item .si-txt mark{background:#6b5e00;color:#f5e642}
+/* 툴바 버튼 */
+#toolbar{display:flex;align-items:center;gap:6px}
+.tb-btn{width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:transparent;color:#777;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.tb-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tb-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+/* 하이라이트 팔레트 */
+#hl-palette{display:none;position:fixed;z-index:200;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;box-shadow:0 4px 16px rgba(0,0,0,.2);gap:8px;align-items:center}
+#hl-palette.show{display:flex}
+.hl-dot{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.hl-dot:hover{transform:scale(1.2)}
+.hl-dot.y{background:#fff176}.hl-dot.b{background:#b3e5fc}.hl-dot.g{background:#c8e6c9}
+.hl-dot.erase{background:#eee;border:2px solid #ccc;font-size:12px;display:flex;align-items:center;justify-content:center}
+body.dark .hl-dot.erase{background:#333;border-color:#555}
 
 #bot{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-top:1px solid var(--border);background:#fff;flex-shrink:0;gap:8px}
 .nb{display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:5px;background:#fff;color:#555;font-size:12px;cursor:pointer;transition:all .12s;white-space:nowrap}
@@ -160,8 +203,32 @@ li.lk{opacity:.45}li.lk .tl{opacity:1}li.ul .tl{display:none}
     <button class="nb" id="prev">← 이전</button>
     <div class="fc"><button class="fb" id="fd">A-</button><span class="fl" id="fsl">16</span><button class="fb" id="fu">A+</button></div>
     <span class="pi" id="pi">표지</span>
+    <div id="toolbar">
+      <button class="tb-btn" id="srch-btn" title="검색">🔍</button>
+      <button class="tb-btn" id="hl-btn" title="하이라이트">🖊</button>
+      <button class="tb-btn" id="dark-btn" title="다크모드">🌙</button>
+    </div>
     <button class="nb" id="next">다음 →</button>
   </div>
+
+<!-- 검색 오버레이 -->
+<div id="srch-wrap">
+  <div id="srch-box">
+    <span style="font-size:16px;color:#999">🔍</span>
+    <input id="srch-inp" placeholder="본문 검색..." autocomplete="off" spellcheck="false">
+    <span id="srch-info"></span>
+    <button id="srch-close">✕</button>
+  </div>
+  <div id="srch-results"></div>
+</div>
+
+<!-- 하이라이트 팔레트 -->
+<div id="hl-palette">
+  <div class="hl-dot y" data-color="hl-y" title="노랑"></div>
+  <div class="hl-dot b" data-color="hl-b" title="파랑"></div>
+  <div class="hl-dot g" data-color="hl-g" title="초록"></div>
+  <div class="hl-dot erase" data-color="erase" title="지우기">✕</div>
+</div>
 </div>
 
 <script>
@@ -304,6 +371,141 @@ window.addEventListener('resize',show);
 })();
 
 initLocks();show();
+
+// ── 다크모드 ──────────────────────────────────────────────
+(function(){
+  const btn=document.getElementById('dark-btn');
+  const apply=v=>{document.body.classList.toggle('dark',v);btn.classList.toggle('active',v);localStorage.setItem('apollo_dark',v?'1':'')};
+  apply(!!localStorage.getItem('apollo_dark'));
+  btn.addEventListener('click',()=>apply(!document.body.classList.contains('dark')));
+})();
+
+// ── 검색 ─────────────────────────────────────────────────
+(function(){
+  const wrap=document.getElementById('srch-wrap'),inp=document.getElementById('srch-inp'),info=document.getElementById('srch-info'),res=document.getElementById('srch-results');
+  document.getElementById('srch-btn').addEventListener('click',()=>{wrap.classList.add('show');inp.focus();inp.select()});
+  document.getElementById('srch-close').addEventListener('click',()=>{wrap.classList.remove('show');inp.value='';res.innerHTML='';info.textContent=''});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('srch-close').click()});
+  // 챕터 제목 매핑
+  const chMap={};P.forEach(p=>{if(!chMap[p.ch])chMap[p.ch]={pg:P.indexOf(p)}});
+  // TOC에서 제목 가져오기
+  document.querySelectorAll('#toc li[data-ch]').forEach(li=>{const c=li.dataset.ch;if(chMap[c])chMap[c].title=li.querySelector('.tt').textContent});
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim();
+    if(q.length<2){res.innerHTML='';info.textContent='';return}
+    const re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+    const hits=[];
+    P.forEach((p,i)=>{
+      const tmp=document.createElement('div');tmp.innerHTML=p.html;
+      const txt=tmp.textContent;
+      if(re.test(txt)){
+        const m=txt.match(re);
+        re.lastIndex=0;
+        const idx=txt.search(re);re.lastIndex=0;
+        const start=Math.max(0,idx-40),end=Math.min(txt.length,idx+80);
+        const snip=txt.slice(start,end).replace(re,s=>'<mark>'+s+'</mark>');
+        hits.push({pg:i,ch:p.ch,snip,count:m.length});
+      }
+    });
+    info.textContent=hits.length?hits.length+'개 결과':'결과 없음';
+    res.innerHTML=hits.slice(0,40).map(h=>{
+      const title=(chMap[h.ch]&&chMap[h.ch].title)||h.ch;
+      return '<div class="srch-item" data-pg="'+h.pg+'"><div class="si-ch">'+title+'</div><div class="si-txt">…'+h.snip+'…</div></div>';
+    }).join('');
+    res.querySelectorAll('.srch-item').forEach(el=>el.addEventListener('click',()=>{goTo(+el.dataset.pg);wrap.classList.remove('show')}));
+  });
+})();
+
+// ── 하이라이트 ────────────────────────────────────────────
+(function(){
+  const HK='apollo_hl';
+  const palette=document.getElementById('hl-palette');
+  const btn=document.getElementById('hl-btn');
+  let hlMode=false,activeColor='hl-y';
+  const gh=()=>{try{return JSON.parse(localStorage.getItem(HK)||'{}')}catch{return{}}};
+  const sh=d=>localStorage.setItem(HK,JSON.stringify(d));
+
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    hlMode=!hlMode;
+    btn.classList.toggle('active',hlMode);
+    if(hlMode){
+      const r=btn.getBoundingClientRect();
+      palette.style.bottom=(window.innerHeight-r.top+6)+'px';
+      palette.style.right=(window.innerWidth-r.right)+'px';
+      palette.classList.add('show');
+    } else {
+      palette.classList.remove('show');
+    }
+  });
+
+  palette.querySelectorAll('.hl-dot').forEach(dot=>{
+    dot.addEventListener('click',e=>{e.stopPropagation();activeColor=dot.dataset.color;palette.querySelectorAll('.hl-dot').forEach(d=>d.style.outline='');dot.style.outline='3px solid var(--accent)'});
+  });
+  // 기본 색상 표시
+  palette.querySelector('.hl-dot.y').style.outline='3px solid var(--accent)';
+
+  document.addEventListener('click',e=>{if(!palette.contains(e.target)&&e.target!==btn)palette.classList.remove('show')});
+
+  // 텍스트 선택 시 하이라이트 적용
+  document.addEventListener('mouseup',e=>{
+    if(!hlMode)return;
+    const sel=window.getSelection();
+    if(!sel||sel.isCollapsed||!sel.toString().trim())return;
+    const range=sel.getRangeAt(0);
+    const page=range.commonAncestorContainer.parentElement?.closest('.page');
+    if(!page)return;
+    if(activeColor==='erase'){
+      // 지우기: 선택 범위 내 span 제거
+      const spans=page.querySelectorAll('span[data-hl]');
+      spans.forEach(sp=>{if(sel.containsNode(sp,true)){const t=document.createTextNode(sp.textContent);sp.parentNode.replaceChild(t,sp)}});
+    } else {
+      const span=document.createElement('span');
+      span.className=activeColor;
+      span.dataset.hl='1';
+      try{range.surroundContents(span);}catch{return;}
+    }
+    sel.removeAllRanges();
+    // 저장
+    const slot=page.closest('.pg-slot');
+    const idx=slot.id==='L'?cur:(two()?cur+1:cur);
+    if(idx>=0&&idx<T){const h=gh();h[idx]=page.innerHTML;sh(h);}
+  });
+
+  // 터치 선택 지원
+  document.addEventListener('touchend',e=>{
+    if(!hlMode)return;
+    setTimeout(()=>{
+      const sel=window.getSelection();
+      if(!sel||sel.isCollapsed||!sel.toString().trim())return;
+      document.dispatchEvent(new MouseEvent('mouseup'));
+    },100);
+  });
+
+  // 저장된 하이라이트를 render에 반영 (EK와 동일 로직 — page innerHTML 오버라이드)
+  const origRender=window._origRender||render;
+  window._patchedRender=true;
+  // render 함수 내 edits와 함께 hl도 적용되도록 패치
+  const hlData=gh;
+  // render 함수를 직접 재정의
+  window._renderHL=function(slot,i){
+    if(i<0||i>=T){slot.innerHTML='';slot.classList.add('empty');return}
+    slot.classList.remove('empty');
+    const p=P[i],lk=locked(i);
+    const edits=ge(),hls=hlData();
+    let h='<div class="pg-num">'+(i+1)+' / '+T+'</div>';
+    if(lk) h+='<div class="lock-msg"><div class="li">🔒</div><p>관리자가 열람을 허가해야<br>읽을 수 있는 챕터입니다.</p></div><div class="page blurred">'+p.html+'</div>';
+    else{
+      let ph=edits[i]!==undefined?edits[i]:p.html;
+      if(hls[i]!==undefined)ph=hls[i];
+      h+='<div class="page">'+ph+'</div>';
+    }
+    slot.innerHTML=h;slot.style.fontSize=fs+'px';slot.scrollTop=0;
+    if(editMode&&!lk)enableEditInSlot(slot);
+  };
+  // render를 패치된 버전으로 교체
+  window.render=window._renderHL;
+})();
 </script>
 </body>
 </html>
