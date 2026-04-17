@@ -281,14 +281,24 @@ window.addEventListener('resize',show);
 
 // 터치 스와이프 (모바일)
 (function(){
-  let sx=0,sy=0;
+  let sx=0,sy=0,sbx=0,sby=0;
   const pg=document.getElementById('pages');
+  const sb=document.getElementById('sb');
   pg.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
   pg.addEventListener('touchend',e=>{
     const dx=e.changedTouches[0].clientX-sx;
     const dy=e.changedTouches[0].clientY-sy;
     if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
       if(dx<0)goN();else goP();
+    }
+  },{passive:true});
+  // 사이드바 왼쪽 스와이프로 닫기
+  sb.addEventListener('touchstart',e=>{sbx=e.touches[0].clientX;sby=e.touches[0].clientY;},{passive:true});
+  sb.addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sbx;
+    const dy=e.changedTouches[0].clientY-sby;
+    if(Math.abs(dx)>Math.abs(dy)&&dx<-40){
+      sb.classList.add('closed');
     }
   },{passive:true});
 })();
