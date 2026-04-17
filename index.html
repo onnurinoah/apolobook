@@ -229,7 +229,11 @@ function hlToc(i){const ch=i>=0&&i<T?P[i].ch:null;document.querySelectorAll('#to
 document.querySelectorAll('#toc li').forEach(li=>li.addEventListener('click',()=>goTo(+li.dataset.pg)));
 document.getElementById('next').addEventListener('click',goN);
 document.getElementById('prev').addEventListener('click',goP);
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();goN()}if(e.key==='ArrowLeft'){e.preventDefault();goP()}});
+document.addEventListener('keydown',e=>{
+  if(editMode&&document.activeElement&&document.activeElement.isContentEditable)return;
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();goN()}
+  if(e.key==='ArrowLeft'){e.preventDefault();goP()}
+});
 
 document.getElementById('fsl').textContent=fs;
 document.getElementById('fu').addEventListener('click',()=>{if(fs<24){fs++;localStorage.setItem('apollo_fs',fs);document.getElementById('fsl').textContent=fs;show()}});
