@@ -176,6 +176,19 @@ body.dark .hl-dot.erase{background:#333;border-color:#555}
 .edit-mode .page [contenteditable="true"]:focus{outline:2px solid var(--accent2)!important;background:rgba(255,248,220,.3)}
 #em-badge{display:none;font-size:10px;color:var(--accent2);text-align:center;padding:3px 0;background:rgba(201,168,76,.08);border-top:1px solid rgba(201,168,76,.2)}
 .edit-mode #em-badge{display:block}
+/* 드래그 핸들 */
+.edit-mode .page>p,.edit-mode .page>.sh,.edit-mode .page>.dv,.edit-mode .page>.bq,.edit-mode .page>.bl,.edit-mode .page>.tm-wrap,.edit-mode .page>.guide-wrap{position:relative}
+.dh{position:absolute;left:-18px;top:50%;transform:translateY(-50%);cursor:grab;color:#bbb;font-size:13px;user-select:none;opacity:0;transition:opacity .12s;z-index:10;padding:2px 3px;line-height:1}
+.dh:active{cursor:grabbing}
+.edit-mode .page>*:hover>.dh{opacity:.65}
+.edit-mode .page .dragging{opacity:.3;background:rgba(201,168,76,.06)}
+.edit-mode .page .drop-above{box-shadow:0 -2px 0 var(--accent2)}
+.edit-mode .page .drop-below{box-shadow:0 2px 0 var(--accent2)}
+/* 서식 툴바 */
+#fmt-bar{position:fixed;display:none;gap:1px;background:#1e1e2e;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:3px;box-shadow:0 4px 16px rgba(0,0,0,.45);z-index:300;align-items:center}
+#fmt-bar button{background:none;border:none;color:#ddd;padding:4px 9px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;line-height:1}
+#fmt-bar button:hover{background:rgba(255,255,255,.12);color:#fff}
+#fmt-bar .fsep{width:1px;height:16px;background:rgba(255,255,255,.12);margin:0 2px}
 </style>
 </head>
 <body>
@@ -221,6 +234,12 @@ body.dark .hl-dot.erase{background:#333;border-color:#555}
   </div>
   <div id="em-badge">✏ 편집 모드 활성</div>
 </nav>
+<div id="fmt-bar">
+  <button id="fmt-bold" title="굵게"><b>B</b></button>
+  <button id="fmt-italic" title="기울임"><i style="font-style:italic">I</i></button>
+  <div class="fsep"></div>
+  <button id="fmt-clear" title="서식 제거" style="font-weight:normal;font-size:11px">서식지우기</button>
+</div>
 
 <div id="rd">
   <div id="prog"><div id="prog-bar"></div></div>
@@ -300,15 +319,79 @@ function savePageEdit(slot){
   if(idx<0||idx>=T)return;
   const clone=page.cloneNode(true);
   clone.querySelectorAll('[contenteditable]').forEach(el=>el.removeAttribute('contenteditable'));
+  clone.querySelectorAll('.dh').forEach(el=>el.remove());
+  clone.querySelectorAll('[draggable]').forEach(el=>el.removeAttribute('draggable'));
+  clone.querySelectorAll('.dragging,.drop-above,.drop-below').forEach(el=>el.classList.remove('dragging','drop-above','drop-below'));
   const e=ge();e[idx]=clone.innerHTML;localStorage.setItem(EK,JSON.stringify(e));
 }
 
 function enableEditInSlot(slot){
   const page=slot.querySelector('.page');if(!page)return;
+  const idx=slot.id==='L'?cur:(two()?cur+1:cur);
+
+  // 텍스트 편집
   page.querySelectorAll('p,.sh,blockquote').forEach(el=>{
     const target=el.tagName==='BLOCKQUOTE'?(el.querySelector('p')||el):el;
     target.contentEditable='true';
     target.addEventListener('blur',()=>savePageEdit(slot));
+  });
+
+  // 드래그 핸들 + 블록 이동
+  page.querySelectorAll('p,.sh,.dv,.bq,.bl,.tm-wrap,.guide-wrap').forEach(block=>{
+    if(block.querySelector('.dh'))return; // 이미 추가됨
+    const handle=document.createElement('span');
+    handle.className='dh';handle.textContent='⠿';handle.title='드래그로 이동';
+    block.prepend(handle);
+
+    // 핸들 mousedown 때만 draggable 활성화 (텍스트 드래그와 충돌 방지)
+    handle.addEventListener('mousedown',()=>{block.draggable=true});
+    block.addEventListener('dragstart',e=>{
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain','');
+      window._dragBlock={el:block,slotId:slot.id,pageIdx:idx};
+      block.classList.add('dragging');
+    });
+    block.addEventListener('dragend',()=>{
+      block.draggable=false;
+      block.classList.remove('dragging','drop-above','drop-below');
+      page.querySelectorAll('.drop-above,.drop-below').forEach(el=>el.classList.remove('drop-above','drop-below'));
+    });
+    block.addEventListener('dragover',e=>{
+      e.preventDefault();
+      if(!window._dragBlock||window._dragBlock.el===block)return;
+      const mid=block.getBoundingClientRect().top+block.getBoundingClientRect().height/2;
+      block.classList.toggle('drop-above',e.clientY<mid);
+      block.classList.toggle('drop-below',e.clientY>=mid);
+    });
+    block.addEventListener('dragleave',()=>block.classList.remove('drop-above','drop-below'));
+    block.addEventListener('drop',e=>{
+      e.preventDefault();
+      block.classList.remove('drop-above','drop-below');
+      if(!window._dragBlock)return;
+      const{el:src,slotId:srcSlotId}=window._dragBlock;
+      if(src===block)return;
+      const after=e.clientY>=block.getBoundingClientRect().top+block.getBoundingClientRect().height/2;
+      if(after)block.after(src);else block.before(src);
+      savePageEdit(slot);
+      if(srcSlotId!==slot.id){
+        const srcSlot=document.getElementById(srcSlotId);
+        if(srcSlot)savePageEdit(srcSlot);
+        // 이동된 블록에 편집 기능 재부여
+        const t=src.tagName==='BLOCKQUOTE'?(src.querySelector('p')||src):src;
+        if(t&&!t.contentEditable){t.contentEditable='true';t.addEventListener('blur',()=>savePageEdit(slot));}
+      }
+    });
+  });
+
+  // 슬롯 자체도 drop zone (빈 공간에 떨어뜨리면 페이지 끝에 추가)
+  page.addEventListener('dragover',e=>e.preventDefault());
+  page.addEventListener('drop',e=>{
+    if(!window._dragBlock||e.target!==page)return;
+    e.preventDefault();
+    const{el:src,slotId:srcSlotId}=window._dragBlock;
+    page.appendChild(src);
+    savePageEdit(slot);
+    if(srcSlotId!==slot.id){const ss=document.getElementById(srcSlotId);if(ss)savePageEdit(ss);}
   });
 }
 
@@ -351,7 +434,11 @@ function hlToc(i){const ch=i>=0&&i<T?P[i].ch:null;document.querySelectorAll('#to
 document.querySelectorAll('#toc li').forEach(li=>li.addEventListener('click',()=>goTo(+li.dataset.pg)));
 document.getElementById('next').addEventListener('click',goN);
 document.getElementById('prev').addEventListener('click',goP);
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();goN()}if(e.key==='ArrowLeft'){e.preventDefault();goP()}});
+document.addEventListener('keydown',e=>{
+  if(editMode&&document.activeElement?.isContentEditable)return;
+  if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();goN()}
+  if(e.key==='ArrowLeft'){e.preventDefault();goP()}
+});
 
 document.getElementById('fsl').textContent=fs;
 document.getElementById('fu').addEventListener('click',()=>{if(fs<24){fs++;localStorage.setItem('apollo_fs',fs);document.getElementById('fsl').textContent=fs;show()}});
@@ -455,6 +542,48 @@ window.addEventListener('resize',show);
 })();
 
 initLocks();show();
+
+// ── 서식 툴바 (굵게/기울임) ──────────────────────────────
+(function(){
+  const bar=document.getElementById('fmt-bar');
+  let hideT;
+  function showBar(sel){
+    const r=sel.getRangeAt(0).getBoundingClientRect();
+    if(!r.width)return;
+    bar.style.display='flex';
+    const bw=bar.offsetWidth||120,bh=bar.offsetHeight||32;
+    let left=r.left+r.width/2-bw/2;
+    left=Math.max(8,Math.min(left,window.innerWidth-bw-8));
+    bar.style.left=left+'px';
+    bar.style.top=(r.top-bh-8+window.scrollY)+'px';
+  }
+  document.addEventListener('selectionchange',()=>{
+    if(!editMode){bar.style.display='none';return}
+    clearTimeout(hideT);
+    const sel=window.getSelection();
+    if(!sel||sel.isCollapsed||!sel.toString().trim()){
+      hideT=setTimeout(()=>bar.style.display='none',300);return;
+    }
+    if(!sel.anchorNode?.parentElement?.isContentEditable){bar.style.display='none';return}
+    showBar(sel);
+  });
+  function fmtBtn(id,cmd,arg){
+    document.getElementById(id).addEventListener('mousedown',e=>{
+      e.preventDefault();
+      document.execCommand(cmd,false,arg||null);
+      const slot=document.activeElement?.closest?.('.pg-slot');
+      if(slot)savePageEdit(slot);
+    });
+  }
+  fmtBtn('fmt-bold','bold');
+  fmtBtn('fmt-italic','italic');
+  document.getElementById('fmt-clear').addEventListener('mousedown',e=>{
+    e.preventDefault();
+    document.execCommand('removeFormat');
+    const slot=document.activeElement?.closest?.('.pg-slot');
+    if(slot)savePageEdit(slot);
+  });
+})();
 
 // ── 다크모드 ──────────────────────────────────────────────
 (function(){
