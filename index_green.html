@@ -214,13 +214,15 @@ body.ink-mode #pages{touch-action:none}
 .memo-row{display:flex;gap:4px;margin-top:4px}
 .memo-small{flex:1;background:transparent;border:1px solid rgba(255,255,255,.12);color:#aaa;padding:4px;border-radius:3px;font-size:10px;cursor:pointer}
 .memo-small.active{background:rgba(232,89,12,.20);color:#ffb08a;border-color:rgba(232,89,12,.45)}
-#memo-label{font-size:10px;color:#aaa;margin:5px 0 3px}
-.page-memo-wrap{margin:18px 0 8px;padding:10px 12px;border:1px dashed rgba(232,89,12,.32);border-radius:8px;background:rgba(232,89,12,.055)}
-.page-memo-title{font-size:10px;color:#e8590c;font-weight:700;margin-bottom:6px;letter-spacing:.04em}
-.page-memo-text{width:100%;min-height:86px;resize:vertical;border:1px solid rgba(232,89,12,.25);border-radius:6px;background:rgba(255,255,255,.72);color:var(--text);padding:8px 9px;font-size:12px;line-height:1.65;box-sizing:border-box;outline:none}
-.page-memo-text:focus{border-color:#e8590c;box-shadow:0 0 0 2px rgba(232,89,12,.12)}
-body.dark .page-memo-wrap{background:rgba(232,89,12,.08);border-color:rgba(232,89,12,.36)}
-body.dark .page-memo-text{background:rgba(0,0,0,.22);border-color:rgba(232,89,12,.32);color:var(--text)}
+#memo-label{font-size:11px;color:#e8590c;margin:0 0 8px;font-weight:700}
+#note-drawer{position:fixed;top:0;right:0;width:min(360px,86vw);height:100%;z-index:34;background:var(--bg);border-left:1px solid var(--border);box-shadow:-10px 0 30px rgba(0,0,0,.14);transform:translateX(105%);transition:transform .24s ease;display:flex;flex-direction:column;color:var(--text)}
+body.note-open #note-drawer{transform:translateX(0)}
+.note-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.note-title{font-size:13px;font-weight:700;color:var(--primary)}
+#note-close{border:none;background:transparent;color:#999;font-size:18px;cursor:pointer;padding:0 2px}
+.note-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-height:0;flex:1}
+#note-drawer .memo-box{min-height:220px;flex:1;background:rgba(0,0,0,.03);border-color:var(--border);color:var(--text);font-size:13px;line-height:1.7}
+body.dark #note-drawer .memo-box{background:rgba(255,255,255,.04)}
 
 </style>
 </head>
@@ -283,8 +285,7 @@ body.dark .page-memo-text{background:rgba(0,0,0,.22);border-color:rgba(232,89,12
           <button id="ul-clear-page" class="memo-small">현재쪽 밑줄 제거</button>
           <button id="note-save" class="memo-small">☁ 메모/밑줄 저장</button>
         </div>
-        <div id="memo-label">현재 페이지 메모</div>
-        <textarea id="memo-text" class="memo-box" placeholder="관리자에게만 보이는 페이지 메모"></textarea>
+        <button id="memo-panel-btn" class="memo-small">📒 오른쪽 메모 열기</button>
         <div id="note-msg" style="font-size:10px;margin-top:4px;color:#7dc896;display:none"></div>
       </div>
       <button id="sv-btn" class="adm-out" style="margin-top:8px;background:rgba(74,124,89,.25);color:#7dc896">☁️ 저장 (GitHub)</button>
@@ -294,6 +295,14 @@ body.dark .page-memo-text{background:rgba(0,0,0,.22);border-color:rgba(232,89,12
   </div>
   <div id="em-badge">✏ 편집 모드 활성</div>
 </nav>
+<aside id="note-drawer" aria-label="관리자 메모 패널">
+  <div class="note-head"><div class="note-title">관리자 메모</div><button id="note-close">✕</button></div>
+  <div class="note-body">
+    <div id="memo-label">현재 페이지 메모</div>
+    <textarea id="memo-text" class="memo-box" placeholder="관리자에게만 보이는 페이지 메모"></textarea>
+    <button id="note-save-drawer" class="memo-small">☁ 메모/밑줄 저장</button>
+  </div>
+</aside>
 <div id="fmt-bar">
   <button id="fmt-bold" title="굵게"><b>B</b></button>
   <button id="fmt-italic" title="기울임"><i style="font-style:italic">I</i></button>
@@ -482,7 +491,7 @@ function render(slot,i){
   slot.innerHTML=h;slot.style.fontSize=fs+'px';slot.scrollTop=0;
   if(editMode&&!lk)enableEditInSlot(slot);
   if(isA&&inkMode&&!lk)setupInkSlot(slot,i);
-  if(isA&&adminNotesLoaded&&!lk)setupPageMemo(slot,i);
+  
 }
 
 function show(){
@@ -525,7 +534,7 @@ document.getElementById('fd').addEventListener('click',()=>{if(fs>12){fs--;local
 
 document.getElementById('menu-btn').addEventListener('click',()=>document.getElementById('sb').classList.toggle('closed'));
 document.getElementById('sb-close').addEventListener('click',()=>document.getElementById('sb').classList.add('closed'));
-document.getElementById('pages').addEventListener('click',e=>{if(isA&&(adminUnderlineMode||e.target.closest('.page-memo-wrap')))return;const sb=document.getElementById('sb');if(!sb.classList.contains('closed'))sb.classList.add('closed')});
+document.getElementById('pages').addEventListener('click',()=>{if(isA)return;const sb=document.getElementById('sb');if(!sb.classList.contains('closed'))sb.classList.add('closed')});
 
 function normalizeLocks(d){return d&&typeof d==='object'&&d.locked&&typeof d.locked==='object'?d.locked:(d&&typeof d==='object'?d:{})}
 function lockableTocItems(){return [...document.querySelectorAll('#toc li.toc-chapter[data-ch]')]}
@@ -555,7 +564,7 @@ document.getElementById('adm-btn').addEventListener('click',()=>{if(!isA)documen
 document.getElementById('lb').addEventListener('click',()=>{if(document.getElementById('pw').value===PW){isA=true;document.body.classList.add('admin-view');document.getElementById('al').classList.remove('show');document.getElementById('ap').classList.add('show');document.getElementById('pe').style.display='none';document.getElementById('pw').value='';buildTg();loadAdminNotesFromServer().then(()=>{buildAdminMemo();show()})}else{document.getElementById('pe').style.display='block'}});
 document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('lb').click()});
 document.getElementById('lo').addEventListener('click',()=>{
-  isA=false;editMode=false;setInkMode(false);setUnderlineMode(false);document.body.classList.remove('admin-view');document.body.classList.remove('edit-mode');
+  isA=false;editMode=false;setInkMode(false);setUnderlineMode(false);openNoteDrawer(false);document.body.classList.remove('admin-view');document.body.classList.remove('edit-mode');
   document.getElementById('ap').classList.remove('show');
   document.getElementById('ec-wrap').style.display='none';
   document.getElementById('em-btn').textContent='📝 편집 모드';
@@ -681,6 +690,7 @@ async function loadAdminNotesFromServer(){
 }
 function currentMemoIndex(){return cur>=0&&cur<T?cur:-1}
 function ensureAdminPage(i){if(!adminNotes.pages[i])adminNotes.pages[i]={};return adminNotes.pages[i]}
+function openNoteDrawer(open=true){document.body.classList.toggle('note-open',!!open)}
 function buildAdminMemo(){
   const ta=document.getElementById('memo-text'),label=document.getElementById('memo-label');
   if(!ta||!label)return;
@@ -706,22 +716,6 @@ function persistAdminPageHtml(page){
   ensureAdminPage(idx).html=page.innerHTML;saveAdminNotesLocal();
 }
 
-function setupPageMemo(slot,i){
-  const page=slot.querySelector('.page:not(.blurred)');if(!page||i<0||i>=T)return;
-  const wrap=document.createElement('div');
-  wrap.className='page-memo-wrap';
-  wrap.innerHTML='<div class="page-memo-title">관리자 메모 · '+(i+1)+'쪽</div><textarea class="page-memo-text" placeholder="이 페이지에 대한 메모를 남기세요. 일반 독자에게는 보이지 않습니다."></textarea>';
-  const ta=wrap.querySelector('textarea');
-  ta.value=adminNotes.pages[i]?.memo||'';
-  ta.addEventListener('click',e=>e.stopPropagation());
-  ta.addEventListener('mousedown',e=>e.stopPropagation());
-  ta.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
-  ta.addEventListener('input',e=>{
-    ensureAdminPage(i).memo=e.target.value;saveAdminNotesLocal();
-    if(i===currentMemoIndex()){const side=document.getElementById('memo-text');if(side&&side.value!==e.target.value)side.value=e.target.value}
-  });
-  slot.appendChild(wrap);
-}
 function unwrapAdminUnderline(sp){
   const parent=sp.parentNode;if(!parent)return;
   while(sp.firstChild)parent.insertBefore(sp.firstChild,sp);
@@ -788,6 +782,9 @@ document.getElementById('ea-btn').addEventListener('click',()=>{
 
 document.getElementById('ul-btn').addEventListener('click',async()=>{await loadAdminNotesFromServer();setUnderlineMode(!adminUnderlineMode);show()});
 document.getElementById('memo-text').addEventListener('input',e=>{const i=currentMemoIndex();if(i<0)return;ensureAdminPage(i).memo=e.target.value;saveAdminNotesLocal()});
+document.getElementById('memo-panel-btn').addEventListener('click',()=>{openNoteDrawer(true);buildAdminMemo()});
+document.getElementById('note-close').addEventListener('click',()=>openNoteDrawer(false));
+document.getElementById('note-save-drawer').addEventListener('click',saveAdminNotesToServer);
 document.getElementById('ul-clear-page').addEventListener('click',()=>{document.querySelectorAll('.pg-slot:not(.empty) .page:not(.blurred)').forEach(clearAdminUnderlinesInPage);show()});
 document.getElementById('note-save').addEventListener('click',saveAdminNotesToServer);
 document.addEventListener('mouseup',()=>setTimeout(applyAdminUnderline,0));
