@@ -215,6 +215,12 @@ body.ink-mode #pages{touch-action:none}
 .memo-small{flex:1;background:transparent;border:1px solid rgba(255,255,255,.12);color:#aaa;padding:4px;border-radius:3px;font-size:10px;cursor:pointer}
 .memo-small.active{background:rgba(232,89,12,.20);color:#ffb08a;border-color:rgba(232,89,12,.45)}
 #memo-label{font-size:10px;color:#aaa;margin:5px 0 3px}
+.page-memo-wrap{margin:18px 0 8px;padding:10px 12px;border:1px dashed rgba(232,89,12,.32);border-radius:8px;background:rgba(232,89,12,.055)}
+.page-memo-title{font-size:10px;color:#e8590c;font-weight:700;margin-bottom:6px;letter-spacing:.04em}
+.page-memo-text{width:100%;min-height:86px;resize:vertical;border:1px solid rgba(232,89,12,.25);border-radius:6px;background:rgba(255,255,255,.72);color:var(--text);padding:8px 9px;font-size:12px;line-height:1.65;box-sizing:border-box;outline:none}
+.page-memo-text:focus{border-color:#e8590c;box-shadow:0 0 0 2px rgba(232,89,12,.12)}
+body.dark .page-memo-wrap{background:rgba(232,89,12,.08);border-color:rgba(232,89,12,.36)}
+body.dark .page-memo-text{background:rgba(0,0,0,.22);border-color:rgba(232,89,12,.32);color:var(--text)}
 
 </style>
 </head>
@@ -480,6 +486,7 @@ function render(slot,i){
   slot.innerHTML=h;slot.style.fontSize=fs+'px';slot.scrollTop=0;
   if(editMode&&!lk)enableEditInSlot(slot);
   if(isA&&inkMode&&!lk)setupInkSlot(slot,i);
+  if(isA&&adminNotesLoaded&&!lk)setupPageMemo(slot,i);
 }
 
 function show(){
@@ -522,7 +529,7 @@ document.getElementById('fd').addEventListener('click',()=>{if(fs>12){fs--;local
 
 document.getElementById('menu-btn').addEventListener('click',()=>document.getElementById('sb').classList.toggle('closed'));
 document.getElementById('sb-close').addEventListener('click',()=>document.getElementById('sb').classList.add('closed'));
-document.getElementById('pages').addEventListener('click',()=>{const sb=document.getElementById('sb');if(!sb.classList.contains('closed'))sb.classList.add('closed')});
+document.getElementById('pages').addEventListener('click',e=>{if(isA&&(adminUnderlineMode||e.target.closest('.page-memo-wrap')))return;const sb=document.getElementById('sb');if(!sb.classList.contains('closed'))sb.classList.add('closed')});
 
 function normalizeLocks(d){return d&&typeof d==='object'&&d.locked&&typeof d.locked==='object'?d.locked:(d&&typeof d==='object'?d:{})}
 function lockableTocItems(){return [...document.querySelectorAll('#toc li.toc-chapter[data-ch]')]}
@@ -702,6 +709,36 @@ function persistAdminPageHtml(page){
   const idx=pageIndexFromPage(page);if(idx<0||idx>=T)return;
   ensureAdminPage(idx).html=page.innerHTML;saveAdminNotesLocal();
 }
+
+function setupPageMemo(slot,i){
+  const page=slot.querySelector('.page:not(.blurred)');if(!page||i<0||i>=T)return;
+  const wrap=document.createElement('div');
+  wrap.className='page-memo-wrap';
+  wrap.innerHTML='<div class="page-memo-title">관리자 메모 · '+(i+1)+'쪽</div><textarea class="page-memo-text" placeholder="이 페이지에 대한 메모를 남기세요. 일반 독자에게는 보이지 않습니다."></textarea>';
+  const ta=wrap.querySelector('textarea');
+  ta.value=adminNotes.pages[i]?.memo||'';
+  ta.addEventListener('click',e=>e.stopPropagation());
+  ta.addEventListener('mousedown',e=>e.stopPropagation());
+  ta.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  ta.addEventListener('input',e=>{
+    ensureAdminPage(i).memo=e.target.value;saveAdminNotesLocal();
+    if(i===currentMemoIndex()){const side=document.getElementById('memo-text');if(side&&side.value!==e.target.value)side.value=e.target.value}
+  });
+  slot.appendChild(wrap);
+}
+function unwrapAdminUnderline(sp){
+  const parent=sp.parentNode;if(!parent)return;
+  while(sp.firstChild)parent.insertBefore(sp.firstChild,sp);
+  sp.remove();parent.normalize();
+}
+function selectionAdminUnderlines(page,range,sel){
+  return [...page.querySelectorAll('span[data-admin-ul]')].filter(sp=>{
+    if(sel.containsNode(sp,true))return true;
+    try{if(range.intersectsNode(sp))return true}catch(e){}
+    return sp.contains(range.commonAncestorContainer);
+  });
+}
+
 function applyAdminUnderline(){
   if(!isA||!adminUnderlineMode||editMode||inkMode)return;
   const sel=window.getSelection();
@@ -709,12 +746,14 @@ function applyAdminUnderline(){
   const range=sel.getRangeAt(0);
   const page=(range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement)?.closest('.page');
   if(!page||page.classList.contains('blurred'))return;
+  const existing=selectionAdminUnderlines(page,range,sel);
+  if(existing.length){existing.forEach(unwrapAdminUnderline);sel.removeAllRanges();persistAdminPageHtml(page);return}
   const span=document.createElement('span');span.className='admin-ul';span.dataset.adminUl='1';
   try{const frag=range.extractContents();span.appendChild(frag);range.insertNode(span)}catch(e){return}
   sel.removeAllRanges();persistAdminPageHtml(page);
 }
 function clearAdminUnderlinesInPage(page){
-  page.querySelectorAll('span[data-admin-ul]').forEach(sp=>{const parent=sp.parentNode;while(sp.firstChild)parent.insertBefore(sp.firstChild,sp);sp.remove();parent.normalize()});
+  page.querySelectorAll('span[data-admin-ul]').forEach(unwrapAdminUnderline);
   persistAdminPageHtml(page);
 }
 async function saveAdminNotesToServer(){
