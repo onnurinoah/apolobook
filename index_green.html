@@ -233,7 +233,7 @@ body.ink-mode #pages{touch-action:none}
     <div class="adm-login" id="al"><input type="password" id="pw" placeholder="비밀번호"><button id="lb">로그인</button><div class="adm-err" id="pe">비밀번호가 올바르지 않습니다.</div></div>
     <div class="adm-panel" id="ap">
       <div class="adm-badge">🔑 관리자 모드</div>
-      <div id="tg"></div>
+      <div id="tg"></div><div id="lk-msg" style="font-size:10px;margin-top:4px;color:#7dc896;display:none"></div>
       <button id="em-btn" class="adm-out" style="margin-top:8px">📝 편집 모드</button>
       <div id="ec-wrap" style="display:none;margin-top:3px">
         <button id="ec-btn" class="adm-out">↩ 현재 페이지 초기화</button>
@@ -339,6 +339,7 @@ let T=P.length;
 let cur=-1,fs=+(localStorage.getItem('apollo_green_fs')||16),isA=false,editMode=false;
 const INK_KEY='apollo_green_ink_local';
 let inkMode=false,inkLoaded=false,inkData={version:1,pages:{}},inkColor='#e8590c',inkWidth=2.5,inkTool='pen';
+let lockState=gl(),locksLoaded=false;
 
 // 동적 pages_data_green.json 로드 (웹 저장 내용이 있으면 덮어씀)
 (function(){
@@ -356,7 +357,7 @@ let inkMode=false,inkLoaded=false,inkData={version:1,pages:{}},inkColor='#e8590c
 const L=document.getElementById('L'),R=document.getElementById('R'),cv=document.getElementById('cover'),pb=document.getElementById('prog-bar'),pi=document.getElementById('pi');
 
 const two=()=>window.innerWidth>768;
-const locked=i=>{if(i<0||i>=T)return false;const p=P[i];if(!p.lk)return false;const s=gl();return s[p.ch]!==false;};
+const locked=i=>{if(i<0||i>=T)return false;const p=P[i];return lockState[p.ch]===true;};
 
 function savePageEdit(slot){
   const page=slot.querySelector('.page');if(!page)return;
@@ -494,8 +495,29 @@ document.getElementById('menu-btn').addEventListener('click',()=>document.getEle
 document.getElementById('sb-close').addEventListener('click',()=>document.getElementById('sb').classList.add('closed'));
 document.getElementById('pages').addEventListener('click',()=>{const sb=document.getElementById('sb');if(!sb.classList.contains('closed'))sb.classList.add('closed')});
 
-function initLocks(){const s=gl();P.forEach(p=>{if(p.lk&&!(p.ch in s))s[p.ch]=true});sl(s);applyTL(s)}
-function applyTL(s){document.querySelectorAll('#toc li[data-lockable]').forEach(li=>{const lk=s[li.dataset.ch]!==false;li.classList.toggle('lk',lk);li.classList.toggle('ul',!lk)})}
+function normalizeLocks(d){return d&&typeof d==='object'&&d.locked&&typeof d.locked==='object'?d.locked:(d&&typeof d==='object'?d:{})}
+function lockableTocItems(){return [...document.querySelectorAll('#toc li.toc-chapter[data-ch]')]}
+function initLocks(){lockState=gl();applyTL(lockState);if(isA)buildTg()}
+function applyTL(s=lockState){lockableTocItems().forEach(li=>{const lk=s[li.dataset.ch]===true;li.classList.toggle('lk',lk);li.classList.toggle('ul',!lk);let mark=li.querySelector('.tl');if(lk&&!mark){mark=document.createElement('span');mark.className='tl';mark.textContent=' 🔒';li.appendChild(mark)}else if(!lk&&mark){mark.remove()}})}
+async function loadLocksFromServer(){
+  if(locksLoaded)return;
+  lockState=gl();applyTL(lockState);
+  try{
+    const r=await fetch('/locks_green.json?t='+Date.now());
+    if(r.ok){lockState=normalizeLocks(await r.json());sl(lockState);applyTL(lockState);show();if(isA)buildTg()}
+  }catch(e){}
+  locksLoaded=true;
+}
+async function saveLocksToServer(){
+  const msg=document.getElementById('lk-msg');
+  msg.style.display='block';msg.style.color='#7dc896';msg.textContent='잠금 저장 중...';
+  try{
+    const res=await fetch('/api/save-locks-green',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({locks:lockState,password:PW})});
+    const data=await res.json();
+    if(res.ok){msg.textContent=data.message||'잠금이 저장됐습니다';msg.style.color='#7dc896'}
+    else{msg.textContent=data.error||'잠금 저장 실패';msg.style.color='#e07070'}
+  }catch(e){msg.textContent='네트워크 오류: '+e.message;msg.style.color='#e07070'}
+}
 
 document.getElementById('adm-btn').addEventListener('click',()=>{if(!isA)document.getElementById('al').classList.toggle('show')});
 document.getElementById('lb').addEventListener('click',()=>{if(document.getElementById('pw').value===PW){isA=true;document.getElementById('al').classList.remove('show');document.getElementById('ap').classList.add('show');document.getElementById('pe').style.display='none';document.getElementById('pw').value='';buildTg()}else{document.getElementById('pe').style.display='block'}});
@@ -551,16 +573,21 @@ function setupInkSlot(slot,i){
   page.style.position='relative';
   const canvas=document.createElement('canvas');canvas.className='ink-canvas';canvas.dataset.pg=i;page.appendChild(canvas);
   requestAnimationFrame(()=>sizeInkCanvas(canvas,page,i));
-  let stroke=null,last=null;
-  const pos=e=>{const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,p:e.pressure||0.5}};
-  canvas.addEventListener('pointerdown',e=>{
-    e.preventDefault();canvas.setPointerCapture(e.pointerId);
+  let stroke=null,last=null,hasPointer=false;
+  const pos=e=>{
+    const src=e.touches?.[0]||e.changedTouches?.[0]||e;
+    const r=canvas.getBoundingClientRect();
+    return{x:src.clientX-r.left,y:src.clientY-r.top,p:src.force||src.pressure||e.pressure||0.5};
+  };
+  const begin=e=>{
+    e.preventDefault();
+    if(e.pointerId!==undefined&&canvas.setPointerCapture)canvas.setPointerCapture(e.pointerId);
     const p=pos(e);
     if(inkTool==='eraser'){eraseInkAt(canvas,i,p.x,p.y);return}
     stroke={color:inkColor,width:inkWidth,points:[[+(p.x/canvas.clientWidth).toFixed(4),+(p.y/canvas.clientHeight).toFixed(4),+p.p.toFixed(2)]]};
     last=p;
-  });
-  canvas.addEventListener('pointermove',e=>{
+  };
+  const move=e=>{
     if(!stroke)return;e.preventDefault();const p=pos(e);
     if(last&&Math.hypot(p.x-last.x,p.y-last.y)<2)return;
     stroke.points.push([+(p.x/canvas.clientWidth).toFixed(4),+(p.y/canvas.clientHeight).toFixed(4),+p.p.toFixed(2)]);
@@ -568,13 +595,21 @@ function setupInkSlot(slot,i){
     const ctx=canvas.getContext('2d'),w=canvas.clientWidth,h=canvas.clientHeight,dpr=window.devicePixelRatio||1;
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.strokeStyle=stroke.color;ctx.lineWidth=stroke.width;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();
     stroke.points.forEach((pt,idx)=>{const x=pt[0]*w,y=pt[1]*h;if(idx===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();
-  });
-  const end=e=>{
+  };
+  const endStroke=e=>{
     if(!stroke)return;e.preventDefault();
     if(stroke.points.length>1){const strokes=getInkStrokes(i).concat(stroke);setInkStrokes(i,strokes)}
     stroke=null;drawInkCanvas(canvas,i);
   };
-  canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('pointerleave',end);
+  canvas.addEventListener('pointerdown',e=>{hasPointer=true;begin(e)},{passive:false});
+  canvas.addEventListener('pointermove',move,{passive:false});
+  canvas.addEventListener('pointerup',endStroke,{passive:false});
+  canvas.addEventListener('pointercancel',endStroke,{passive:false});
+  canvas.addEventListener('pointerleave',endStroke,{passive:false});
+  canvas.addEventListener('touchstart',e=>{if(!hasPointer)begin(e)},{passive:false});
+  canvas.addEventListener('touchmove',e=>{if(!hasPointer)move(e)},{passive:false});
+  canvas.addEventListener('touchend',e=>{if(!hasPointer)endStroke(e)},{passive:false});
+  canvas.addEventListener('touchcancel',e=>{if(!hasPointer)endStroke(e)},{passive:false});
 }
 function setInkMode(on){
   inkMode=!!on;
@@ -620,7 +655,7 @@ document.getElementById('ink-width').addEventListener('input',e=>inkWidth=+e.tar
 document.getElementById('ink-pen').addEventListener('click',()=>setInkTool('pen'));
 document.getElementById('ink-eraser').addEventListener('click',()=>setInkTool('eraser'));
 document.getElementById('ink-clear-page').addEventListener('click',()=>{
-  const idxs=two()?[cur,cur+1]:[cur];idxs.forEach(i=>{if(i>=0&&i<T)setInkStrokes(i,[])});
+  const idxs=cur<0?[]:(two()?[cur,cur+1]:[cur]);idxs.forEach(i=>{if(i>=0&&i<T)setInkStrokes(i,[])});
   show();
 });
 document.getElementById('ink-clear-all').addEventListener('click',()=>{
@@ -667,10 +702,10 @@ document.getElementById('sv-btn').addEventListener('click',async()=>{
   btn.disabled=false;btn.textContent='☁️ 저장 (GitHub)';
 });
 
-function buildTg(){const c=document.getElementById('tg');c.innerHTML='';const s=gl(),seen=new Set();
-P.forEach(p=>{if(!p.lk||seen.has(p.ch))return;seen.add(p.ch);const t=document.querySelector('#toc li[data-ch="'+p.ch+'"] .tt')?.textContent||p.ch;const ul=s[p.ch]===false;
-const d=document.createElement('div');d.className='cht';d.innerHTML='<span title="'+t+'">'+t+'</span><label class="sw"><input type="checkbox" data-id="'+p.ch+'" '+(ul?'checked':'')+'><span class="sl"></span></label>';c.appendChild(d)});
-c.querySelectorAll('input').forEach(inp=>{inp.addEventListener('change',()=>{const s=gl();s[inp.dataset.id]=!inp.checked;sl(s);applyTL(s);show()})})}
+function buildTg(){const c=document.getElementById('tg');c.innerHTML='';
+lockableTocItems().forEach(li=>{const ch=li.dataset.ch,t=li.querySelector('.tt')?.textContent||ch,open=lockState[ch]!==true;
+const d=document.createElement('div');d.className='cht';d.innerHTML='<span title="'+t+'">'+t+'</span><label class="sw"><input type="checkbox" data-id="'+ch+'" '+(open?'checked':'')+'><span class="sl"></span></label>';c.appendChild(d)});
+c.querySelectorAll('input').forEach(inp=>{inp.addEventListener('change',async()=>{lockState[inp.dataset.id]=!inp.checked;sl(lockState);applyTL(lockState);show();await saveLocksToServer()})})}
 
 window.addEventListener('resize',show);
 
@@ -699,7 +734,7 @@ window.addEventListener('resize',show);
   },{passive:true});
 })();
 
-initLocks();show();
+initLocks();show();loadLocksFromServer();
 
 // ── 서식 툴바 (굵게/기울임) ──────────────────────────────
 (function(){
