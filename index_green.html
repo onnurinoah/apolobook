@@ -205,6 +205,17 @@ body.dark .hl-dot.erase{background:#333;border-color:#555}
 .ink-width{width:70px}
 body.ink-mode #pages{touch-action:none}
 
+/* 관리자 밑줄/메모 */
+.admin-ul{border-bottom:2px solid #e8590c;background:rgba(232,89,12,.10);border-radius:2px}
+#ul-wrap{display:none;margin-top:6px;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:5px;background:rgba(255,255,255,.035)}
+#ul-wrap.show{display:block}
+.memo-box{width:100%;min-height:76px;resize:vertical;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.12);border-radius:4px;color:#ddd;padding:6px;font-size:11px;line-height:1.5;box-sizing:border-box}
+.memo-box:disabled{opacity:.45}
+.memo-row{display:flex;gap:4px;margin-top:4px}
+.memo-small{flex:1;background:transparent;border:1px solid rgba(255,255,255,.12);color:#aaa;padding:4px;border-radius:3px;font-size:10px;cursor:pointer}
+.memo-small.active{background:rgba(232,89,12,.20);color:#ffb08a;border-color:rgba(232,89,12,.45)}
+#memo-label{font-size:10px;color:#aaa;margin:5px 0 3px}
+
 </style>
 </head>
 <body>
@@ -258,6 +269,17 @@ body.ink-mode #pages{touch-action:none}
           <button id="ink-save" class="ink-small">☁ 필기 저장</button>
         </div>
         <div id="ink-msg" style="font-size:10px;margin-top:4px;color:#7dc896;display:none"></div>
+      </div>
+
+      <button id="ul-btn" class="adm-out" style="margin-top:8px">〰 관리자 밑줄</button>
+      <div id="ul-wrap">
+        <div class="memo-row">
+          <button id="ul-clear-page" class="memo-small">현재쪽 밑줄 제거</button>
+          <button id="note-save" class="memo-small">☁ 메모/밑줄 저장</button>
+        </div>
+        <div id="memo-label">현재 페이지 메모</div>
+        <textarea id="memo-text" class="memo-box" placeholder="관리자에게만 보이는 페이지 메모"></textarea>
+        <div id="note-msg" style="font-size:10px;margin-top:4px;color:#7dc896;display:none"></div>
       </div>
       <button id="sv-btn" class="adm-out" style="margin-top:8px;background:rgba(74,124,89,.25);color:#7dc896">☁️ 저장 (GitHub)</button>
       <div id="sv-msg" style="font-size:11px;margin-top:4px;color:#7dc896;display:none"></div>
@@ -340,6 +362,8 @@ let cur=-1,fs=+(localStorage.getItem('apollo_green_fs')||16),isA=false,editMode=
 const INK_KEY='apollo_green_ink_local';
 let inkMode=false,inkLoaded=false,inkData={version:1,pages:{}},inkColor='#e8590c',inkWidth=2.5,inkTool='pen';
 let lockState=gl(),locksLoaded=false;
+const ADMIN_NOTE_KEY='apollo_green_admin_notes';
+let adminUnderlineMode=false,adminNotesLoaded=false,adminNotes={version:1,pages:{}};
 
 // 동적 pages_data_green.json 로드 (웹 저장 내용이 있으면 덮어씀)
 (function(){
@@ -448,7 +472,7 @@ function render(slot,i){
   const edits=ge();
   let h='<div class="pg-num">'+(i+1)+' / '+T+'</div>';
   if(lk) h+='<div class="lock-msg"><div class="li">🔒</div><p>관리자가 열람을 허가해야<br>읽을 수 있는 챕터입니다.</p></div><div class="page blurred">'+p.html+'</div>';
-  else{const ph=edits[i]!==undefined?edits[i]:p.html;h+='<div class="page">'+ph+'</div>';}
+  else{let ph=edits[i]!==undefined?edits[i]:p.html;if(isA&&adminNotesLoaded&&adminNotes.pages&&adminNotes.pages[i]?.html)ph=adminNotes.pages[i].html;h+='<div class="page">'+ph+'</div>';}
   slot.innerHTML=h;slot.style.fontSize=fs+'px';slot.scrollTop=0;
   if(editMode&&!lk)enableEditInSlot(slot);
   if(isA&&inkMode&&!lk)setupInkSlot(slot,i);
@@ -466,6 +490,7 @@ function show(){
   document.getElementById('prev').classList.toggle('off',cur<=0);
   document.getElementById('next').classList.toggle('off',cur+(t?2:1)>=T);
   hlToc(cur);
+  if(isA)buildAdminMemo();
 }
 
 function goN(){if(cur===-1){cur=0;show();return}const s=two()?2:1;if(cur+s<T){cur+=s;show()}}
@@ -520,10 +545,10 @@ async function saveLocksToServer(){
 }
 
 document.getElementById('adm-btn').addEventListener('click',()=>{if(!isA)document.getElementById('al').classList.toggle('show')});
-document.getElementById('lb').addEventListener('click',()=>{if(document.getElementById('pw').value===PW){isA=true;document.getElementById('al').classList.remove('show');document.getElementById('ap').classList.add('show');document.getElementById('pe').style.display='none';document.getElementById('pw').value='';buildTg()}else{document.getElementById('pe').style.display='block'}});
+document.getElementById('lb').addEventListener('click',()=>{if(document.getElementById('pw').value===PW){isA=true;document.body.classList.add('admin-view');document.getElementById('al').classList.remove('show');document.getElementById('ap').classList.add('show');document.getElementById('pe').style.display='none';document.getElementById('pw').value='';buildTg();loadAdminNotesFromServer().then(()=>{buildAdminMemo();show()})}else{document.getElementById('pe').style.display='block'}});
 document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('lb').click()});
 document.getElementById('lo').addEventListener('click',()=>{
-  isA=false;editMode=false;setInkMode(false);document.body.classList.remove('edit-mode');
+  isA=false;editMode=false;setInkMode(false);setUnderlineMode(false);document.body.classList.remove('admin-view');document.body.classList.remove('edit-mode');
   document.getElementById('ap').classList.remove('show');
   document.getElementById('ec-wrap').style.display='none';
   document.getElementById('em-btn').textContent='📝 편집 모드';
@@ -634,6 +659,72 @@ function setInkMode(on){
 function setInkTool(t){inkTool=t;document.getElementById('ink-pen').classList.toggle('active',t==='pen');document.getElementById('ink-eraser').classList.toggle('active',t==='eraser')}
 
 
+
+function normalizeAdminNotes(d){return d&&typeof d==='object'&&d.pages&&typeof d.pages==='object'?d:{version:1,pages:{}}}
+function getAdminNotesLocal(){try{return normalizeAdminNotes(JSON.parse(localStorage.getItem(ADMIN_NOTE_KEY)||'{}'))}catch{return{version:1,pages:{}}}}
+function saveAdminNotesLocal(){localStorage.setItem(ADMIN_NOTE_KEY,JSON.stringify(adminNotes))}
+async function loadAdminNotesFromServer(){
+  if(adminNotesLoaded)return;
+  adminNotes=getAdminNotesLocal();
+  try{
+    const r=await fetch('/admin_notes_green.json?t='+Date.now());
+    if(r.ok){adminNotes=normalizeAdminNotes(await r.json());saveAdminNotesLocal()}
+  }catch(e){}
+  adminNotesLoaded=true;
+}
+function currentMemoIndex(){return cur>=0&&cur<T?cur:-1}
+function ensureAdminPage(i){if(!adminNotes.pages[i])adminNotes.pages[i]={};return adminNotes.pages[i]}
+function buildAdminMemo(){
+  const ta=document.getElementById('memo-text'),label=document.getElementById('memo-label');
+  if(!ta||!label)return;
+  const i=currentMemoIndex();
+  if(i<0){label.textContent='현재 페이지 메모';ta.value='';ta.disabled=true;return}
+  ta.disabled=false;label.textContent='현재 페이지 메모 · '+(i+1)+'쪽';
+  ta.value=adminNotes.pages[i]?.memo||'';
+}
+function setUnderlineMode(on){
+  adminUnderlineMode=!!on;
+  const btn=document.getElementById('ul-btn'),wrap=document.getElementById('ul-wrap');
+  if(btn){btn.textContent=adminUnderlineMode?'〰 밑줄 중 (선택하면 적용)':'〰 관리자 밑줄';btn.style.color=adminUnderlineMode?'#ffb08a':'';btn.classList.toggle('active',adminUnderlineMode)}
+  if(wrap)wrap.classList.toggle('show',adminUnderlineMode||isA);
+  if(adminUnderlineMode&&editMode)document.getElementById('em-btn').click();
+  if(adminUnderlineMode&&inkMode)setInkMode(false);
+}
+function pageIndexFromPage(page){
+  const slot=page.closest('.pg-slot');if(!slot)return -1;
+  return slot.id==='L'?cur:(two()?cur+1:cur);
+}
+function persistAdminPageHtml(page){
+  const idx=pageIndexFromPage(page);if(idx<0||idx>=T)return;
+  ensureAdminPage(idx).html=page.innerHTML;saveAdminNotesLocal();
+}
+function applyAdminUnderline(){
+  if(!isA||!adminUnderlineMode||editMode||inkMode)return;
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed||!sel.toString().trim())return;
+  const range=sel.getRangeAt(0);
+  const page=(range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement)?.closest('.page');
+  if(!page||page.classList.contains('blurred'))return;
+  const span=document.createElement('span');span.className='admin-ul';span.dataset.adminUl='1';
+  try{const frag=range.extractContents();span.appendChild(frag);range.insertNode(span)}catch(e){return}
+  sel.removeAllRanges();persistAdminPageHtml(page);
+}
+function clearAdminUnderlinesInPage(page){
+  page.querySelectorAll('span[data-admin-ul]').forEach(sp=>{const parent=sp.parentNode;while(sp.firstChild)parent.insertBefore(sp.firstChild,sp);sp.remove();parent.normalize()});
+  persistAdminPageHtml(page);
+}
+async function saveAdminNotesToServer(){
+  const msg=document.getElementById('note-msg');
+  msg.style.display='block';msg.style.color='#7dc896';msg.textContent='메모/밑줄 저장 중...';
+  try{
+    const res=await fetch('/api/save-admin-notes-green',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({notes:adminNotes,password:PW})});
+    const data=await res.json();
+    if(res.ok){msg.textContent=data.message||'메모/밑줄이 저장됐습니다';msg.style.color='#7dc896'}
+    else{msg.textContent=data.error||'저장 실패';msg.style.color='#e07070'}
+  }catch(e){msg.textContent='네트워크 오류: '+e.message;msg.style.color='#e07070'}
+}
+
+
 document.getElementById('em-btn').addEventListener('click',()=>{
   editMode=!editMode;
   document.getElementById('em-btn').textContent=editMode?'✏️ 편집 중 (클릭해서 끄기)':'📝 편집 모드';
@@ -654,6 +745,14 @@ document.getElementById('ea-btn').addEventListener('click',()=>{
   {localStorage.removeItem(EK);show();}
 });
 
+
+
+document.getElementById('ul-btn').addEventListener('click',async()=>{await loadAdminNotesFromServer();setUnderlineMode(!adminUnderlineMode);show()});
+document.getElementById('memo-text').addEventListener('input',e=>{const i=currentMemoIndex();if(i<0)return;ensureAdminPage(i).memo=e.target.value;saveAdminNotesLocal()});
+document.getElementById('ul-clear-page').addEventListener('click',()=>{document.querySelectorAll('.pg-slot:not(.empty) .page:not(.blurred)').forEach(clearAdminUnderlinesInPage);show()});
+document.getElementById('note-save').addEventListener('click',saveAdminNotesToServer);
+document.addEventListener('mouseup',()=>setTimeout(applyAdminUnderline,0));
+document.addEventListener('touchend',()=>setTimeout(applyAdminUnderline,160));
 
 document.getElementById('ink-btn').addEventListener('click',async()=>{
   if(!inkMode){await loadInkFromServer();setInkMode(true)}
