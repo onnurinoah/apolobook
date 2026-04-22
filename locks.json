@@ -1,4 +1,6 @@
 {
   "version": 1,
-  "locked": {}
+  "locked": {
+    "ch_9": true
+  }
 }
