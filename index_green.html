@@ -192,7 +192,7 @@ body.dark .hl-dot.erase{background:#333;border-color:#555}
 
 /* 관리자 전용 펜슬 필기 */
 .ink-mode .pg-slot:not(.empty) .page{position:relative}
-.ink-canvas{position:absolute;left:0;top:0;z-index:25;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.ink-canvas{position:absolute;left:0;top:0;z-index:25;width:100%;height:100%;touch-action:none;pointer-events:auto!important;cursor:crosshair;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .ink-mode .page [contenteditable="true"]{pointer-events:none}
 .ink-controls{display:none;margin-top:4px;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:5px;background:rgba(255,255,255,.035)}
 .ink-controls.show{display:block}
@@ -573,14 +573,17 @@ function setupInkSlot(slot,i){
   page.style.position='relative';
   const canvas=document.createElement('canvas');canvas.className='ink-canvas';canvas.dataset.pg=i;page.appendChild(canvas);
   requestAnimationFrame(()=>sizeInkCanvas(canvas,page,i));
-  let stroke=null,last=null,hasPointer=false;
+  let stroke=null,last=null,lastTouchAt=0;
   const pos=e=>{
     const src=e.touches?.[0]||e.changedTouches?.[0]||e;
     const r=canvas.getBoundingClientRect();
     return{x:src.clientX-r.left,y:src.clientY-r.top,p:src.force||src.pressure||e.pressure||0.5};
   };
   const begin=e=>{
+    if(e.type==='mousedown'&&Date.now()-lastTouchAt<700)return;
+    if(e.type.startsWith('touch'))lastTouchAt=Date.now();
     e.preventDefault();
+    if(stroke)return;
     if(e.pointerId!==undefined&&canvas.setPointerCapture)canvas.setPointerCapture(e.pointerId);
     const p=pos(e);
     if(inkTool==='eraser'){eraseInkAt(canvas,i,p.x,p.y);return}
@@ -588,7 +591,9 @@ function setupInkSlot(slot,i){
     last=p;
   };
   const move=e=>{
-    if(!stroke)return;e.preventDefault();const p=pos(e);
+    if(!stroke)return;
+    if(e.type.startsWith('touch'))lastTouchAt=Date.now();
+    e.preventDefault();const p=pos(e);
     if(last&&Math.hypot(p.x-last.x,p.y-last.y)<2)return;
     stroke.points.push([+(p.x/canvas.clientWidth).toFixed(4),+(p.y/canvas.clientHeight).toFixed(4),+p.p.toFixed(2)]);
     last=p;drawInkCanvas(canvas,i);
@@ -597,19 +602,25 @@ function setupInkSlot(slot,i){
     stroke.points.forEach((pt,idx)=>{const x=pt[0]*w,y=pt[1]*h;if(idx===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)});ctx.stroke();
   };
   const endStroke=e=>{
-    if(!stroke)return;e.preventDefault();
+    if(!stroke)return;
+    if(e?.type?.startsWith('touch'))lastTouchAt=Date.now();
+    if(e?.preventDefault)e.preventDefault();
     if(stroke.points.length>1){const strokes=getInkStrokes(i).concat(stroke);setInkStrokes(i,strokes)}
     stroke=null;drawInkCanvas(canvas,i);
   };
-  canvas.addEventListener('pointerdown',e=>{hasPointer=true;begin(e)},{passive:false});
+  canvas.addEventListener('pointerdown',begin,{passive:false});
   canvas.addEventListener('pointermove',move,{passive:false});
   canvas.addEventListener('pointerup',endStroke,{passive:false});
   canvas.addEventListener('pointercancel',endStroke,{passive:false});
   canvas.addEventListener('pointerleave',endStroke,{passive:false});
-  canvas.addEventListener('touchstart',e=>{if(!hasPointer)begin(e)},{passive:false});
-  canvas.addEventListener('touchmove',e=>{if(!hasPointer)move(e)},{passive:false});
-  canvas.addEventListener('touchend',e=>{if(!hasPointer)endStroke(e)},{passive:false});
-  canvas.addEventListener('touchcancel',e=>{if(!hasPointer)endStroke(e)},{passive:false});
+  canvas.addEventListener('touchstart',begin,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',endStroke,{passive:false});
+  canvas.addEventListener('touchcancel',endStroke,{passive:false});
+  canvas.addEventListener('mousedown',begin,{passive:false});
+  canvas.addEventListener('mousemove',move,{passive:false});
+  canvas.addEventListener('mouseup',endStroke,{passive:false});
+  canvas.addEventListener('mouseleave',endStroke,{passive:false});
 }
 function setInkMode(on){
   inkMode=!!on;
