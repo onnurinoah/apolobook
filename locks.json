@@ -2,8 +2,8 @@
   "version": 1,
   "locked": {
     "ch_9": false,
-    "ch_10": true,
-    "ch_11": true,
+    "ch_10": false,
+    "ch_11": false,
     "ch_12": true,
     "ch_13": true,
     "ch_6": true,
